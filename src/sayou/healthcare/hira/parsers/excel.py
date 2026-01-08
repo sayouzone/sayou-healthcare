@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..client import HiraClient
-from ..models import ExcelData
+from ..models import ExcelData, DownloadResult
 from ..utils import (
     _DOWNLOAD_BASE_URL_,
     decode_euc_kr,
@@ -51,6 +51,60 @@ class ExcelParser:
         """
         self._client = client
         self._local_path = local_path
+
+    def parse(self, file_path: str) -> ExcelData:
+        """
+        엑셀 파일을 파싱하여 ExcelData 객체로 반환
+        
+        Args:
+            file_path: 엑셀 파일 경로
+            
+        Returns:
+            ExcelData: 파싱된 엑셀 데이터
+        """
+        all_medicines: list[Medicine] = []
+        page_results: list[PageResult] = []
+
+        # 현재 디렉토리 설정
+        current_dir = Path('./data')
+
+        page_num = 1
+        for file in current_dir.glob('의약품등제품정보목록*.xlsx'):
+            filename = os.path.join(file_path, file.name)
+            excel_data = self.parse_excel_file(filename)
+
+            if excel_data.row_count <= 1:
+                return PageResult(
+                    page_num=page_num,
+                    filename=decoded_filename,
+                    download_file=None,
+                    medicines=[],
+                    has_more=False,
+                )
+
+            # Medicine 객체로 변환
+            medicines = self._convert_to_medicines(excel_data, page_num, len(excel_data.rows))
+
+            page_result = PageResult(
+                page_num=page_num,
+                filename=filename,
+                download_file=None,
+                medicines=medicines,
+                has_more=False,
+            )
+
+            all_medicines.extend(medicines)
+            page_results.append(page_result)
+
+            page_num += 1
+
+        result = DownloadResult(
+            medicines=all_medicines,
+            page_results=page_results,
+            total_pages=page_num + 1,
+        )
+            
+        return result
 
     def parse_excel_file(self, file_path: str) -> ExcelData:
         """

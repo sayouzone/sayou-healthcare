@@ -44,3 +44,6 @@ class HiraCrawler:
 
     def opendata(self):
         return self._opendata_parser.fetch()
+
+    def parse(self):
+        return self._excel_parser.parse("./data")

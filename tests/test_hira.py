@@ -24,8 +24,19 @@ def demo_download_medicines(crawler: HiraCrawler):
     print(f"Hira")
     print('='*60)
 
-    data = crawler.download()    
-    print(data)
+    data = crawler.download()
+    for medicine in data.medicines:
+        print(medicine)
+
+def demo_parsing_medicines(crawler: HiraCrawler):
+    """NEDRUG 다운로드 데모"""
+    print(f"\n{'='*60}")
+    print(f"NEDRUG Excel Parsing")
+    print('='*60)
+
+    data = crawler.parse()
+    for medicine in data.medicines:
+        print(medicine)
 
 def demo_download_opendata(crawler: HiraCrawler):
     """Hira 다운로드 데모"""
