@@ -6,6 +6,9 @@ __pycache__/
 # MacOS
 .DS_Store
 
+# 테스트 데이터
+tests/data/
+
 # C extensions
 *.so
 

@@ -44,3 +44,6 @@ class NedrugCrawler:
 
     def download(self):
         return self._download_parser.fetch()
+
+    def parse(self):
+        return self._excel_parser.parse("./data")

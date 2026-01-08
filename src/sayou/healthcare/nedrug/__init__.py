@@ -22,66 +22,23 @@ Installation:
     pip install requests beautifulsoup4 lxml
 
 Quick Start:
-    >>> from yahoo import YahooCrawler
+    >>> from sayou.healthcare.nedrug import NedrugCrawler
     >>> 
-    >>> crawler = YahooCrawler()
+    >>> crawler = NedrugCrawler()
     >>> 
-    >>> # 기업 정보 조회
-    >>> data = crawler.info(ticker)
-    >>> print(f"기업 정보: {data}")
+    >>> # Nedrug에서 약품목록 다운로드
+    >>> data = crawler.download()
+    >>> for medicine in data.medicines:
+    >>>     print(medicine)
     >>> 
-    >>> # 일별 시세 조회
-    >>> start_date='2025-12-01'
-    >>> end_date='2025-12-31'
-    >>> data = crawler.market(ticker, start_date=start_date, end_date=end_date)
-    >>> print(data)
-    >>> 
-    >>> # 배당 조회
-    >>> ticker = "AAPL"
-    >>> data = crawler.dividends(ticker=ticker)
-    >>> print(data)
-    >>> 
-    >>> # Yahoo 뉴스 검색
-    >>> print(f"\nYahoo 뉴스 검색: {ticker}")
-    >>> data = crawler.news(query=ticker, max_articles=10)
-    >>> print(data)
-    >>> 
-    >>> # Yahoo 재무제표
-    >>> print(f"\nYahoo 재무제표 손익계산서 검색: {ticker}")
-    >>> data = crawler.fundamentals(ticker)
-    >>> print(data)
-    >>> 
-    >>> # Yahoo 재무제표 (분기)
-    >>> print(f"\nYahoo 재무제표 손익계산서 (분기) 검색: {ticker}")
-    >>> data = crawler.quarterly_fundamentals(ticker)
-    >>> print(data)
-    >>> 
-    >>> # 재무상태표 (연간)
-    >>> print(f"\nYahoo 재무제표 재무상태표 검색: {ticker}")
-    >>> data = crawler.balance_sheet(ticker)
-    >>> print(data)
-    >>> 
-    >>> # 재무상태표 (분기)
-    >>> print(f"\nYahoo 재무제표 재무상태표 (분기) 검색: {ticker}")
-    >>> data = crawler.quarterly_balance_sheet(ticker)
-    >>> print(data)
-    >>> 
-    >>> # 현금흐름표 (연간)
-    >>> print(f"\nYahoo 재무제표 현금흐름표 검색: {ticker}")
-    >>> data = crawler.cash_flow(ticker)
-    >>> print(data)
-    >>> 
-    >>> # 현금흐름표 (분기)
-    >>> print(f"\nYahoo 재무제표 현금흐름표 (분기) 검색: {ticker}")
-    >>> data = crawler.quarterly_cash_flow(ticker)
-    >>> print(data)
+    >>> # Nedrug에서 약품목록 파싱
+    >>> data = crawler.parse()
+    >>> for medicine in data.medicines:
+    >>>     print(medicine)
 
 Supported Cases:
-    - 기업 정보 조회
-    - 일별 시세 조회
-    - 배당 조회
-    - 뉴스 조회
-    - 재무제표 조회
+    - 약품목록 다운로드
+    - 약품목록 파싱
 
 Note:
     Nedrug에서 User-Agent를 사용하세요.

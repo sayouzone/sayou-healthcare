@@ -21,11 +21,22 @@ from sayou.healthcare.nedrug import NedrugCrawler
 def demo_download(crawler: NedrugCrawler):
     """NEDRUG 다운로드 데모"""
     print(f"\n{'='*60}")
-    print(f"NEDRUG Excel")
+    print(f"NEDRUG Excel Download")
     print('='*60)
 
-    data = crawler.download()    
-    print(data)
+    data = crawler.download()
+    for medicine in data.medicines:
+        print(medicine)
+
+def demo_parsing(crawler: NedrugCrawler):
+    """NEDRUG 다운로드 데모"""
+    print(f"\n{'='*60}")
+    print(f"NEDRUG Excel Parsing")
+    print('='*60)
+
+    data = crawler.parse()
+    for medicine in data.medicines:
+        print(medicine)
 
 def main():
     """메인 데모 실행"""
@@ -33,7 +44,8 @@ def main():
     crawler = NedrugCrawler()
    
     # 각 파일링 타입 데모
-    demo_download(crawler)
+    #demo_download(crawler)
+    demo_parsing(crawler)
     
     print("\n" + "="*60)
     print("Demo completed!")
