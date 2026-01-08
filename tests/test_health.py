@@ -19,16 +19,16 @@ print(str(Path(__file__).parent.parent / 'src'))
 from sayou.healthcare.health import HealthCrawler
 
 def demo_download(crawler: HealthCrawler):
-    """NEDRUG 다운로드 데모"""
+    """약학정보원 > 의약품검색 데모"""
     print(f"\n{'='*60}")
-    print(f"NEDRUG Excel")
+    print(f"약학정보원 > 의약품검색 > 검색")
     print('='*60)
 
     data = crawler.download()    
     print(data)
 
 def main():
-    """메인 데모 실행"""
+    """약학정보원 데모 실행"""
     # SEC에서 요구하는 User-Agent 설정
     crawler = HealthCrawler()
    

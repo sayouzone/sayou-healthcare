@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Sayouzone
+# Copyright (c) 2025-2026, Sayouzone
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ class NedrugClient:
 
         return response
 
-    def _post(self, url: str, params: dict = None, body: dict = None, headers: dict = None, referer: str = None, timeout: int = 60) -> requests.Response:
+    def _post(self, url: str, params: dict = None, body: dict = None, headers: dict = None, referer: str = None, timeout: int = 10) -> requests.Response:
         """POST 요청 (rate limit 적용)"""
         self._rate_limit()
         

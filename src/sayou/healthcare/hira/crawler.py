@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Sayouzone
+# Copyright (c) 2025-2026, Sayouzone
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,10 +37,10 @@ class HiraCrawler:
         self._opendata_parser = OpenDataParser(self.client)
         
     def download(self):
-        self._download_parser.fetch()
+        return self._download_parser.fetch()
 
     def excel(self):
-        self._excel_parser.fetch()
+        return self._excel_parser.fetch()
 
     def opendata(self):
-        self._opendata_parser.fetch()
+        return self._opendata_parser.fetch()

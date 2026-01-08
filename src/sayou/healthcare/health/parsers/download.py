@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Sayouzone
+# Copyright (c) 2025-2026, Sayouzone
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,31 +15,140 @@
 import csv
 import logging
 import pandas as pd
+import re
 import time
 
 from lxml import html
+from pathlib import Path
+from typing import Optional
 from urllib.parse import parse_qs, quote
 
 from ..client import HealthClient
 from ..utils import (
     _HEALTH_START_URL_,
     _HEALTH_BASE_URL_,
-    _HEALTH_DOWNLOAD_URL_,
     KOREAN_INITIALS,
     decode_euc_kr,
     get_filename,
 )
+from ..models import Medicine, SearchPayload
+from .medicine import MedicineTableParser
+from .csv_writer import MedicineCsvWriter
 
 logger = logging.getLogger(__name__)
 
 class DownloadParser:
 
-    page_size = 1000
-    wait_time = 10
+    DEFAULT_PAGE_SIZE = 1000
+    DEFAULT_WAIT_TIME = 10
     medicine_list_file = "medicine_list_health.csv"
 
-    def __init__(self, client: HealthClient):
+    def __init__(
+        self,
+        client: HealthClient,
+        page_size: int = DEFAULT_PAGE_SIZE,
+        wait_time: int = DEFAULT_WAIT_TIME,
+        output_path: Optional[str | Path] = None):
         self._client = client
+        
+        self._page_size = page_size
+        self._wait_time = wait_time
+
+        self._html_parser = MedicineTableParser()
+        self._csv_writer = MedicineCsvWriter(output_path)
+
+    @property
+    def page_size(self) -> int:
+        """페이지당 항목 수."""
+        return self._page_size
+
+    @property
+    def wait_time(self) -> int:
+        """요청 간 대기 시간(초)."""
+        return self._wait_time
+    
+
+    def fetch_all(self) -> list[Medicine]:
+        """
+        모든 초성에 대해 의약품 정보를 수집하고 CSV로 저장.
+        
+        Returns:
+            수집된 모든 Medicine 객체 목록.
+        """        
+        all_medicines: list[Medicine] = []
+        for idx, initial in enumerate(KOREAN_INITIALS):
+            logger.info("Processing initial %d/%d: %s", 
+                       idx + 1, len(KOREAN_INITIALS), initial)
+            print(f"Processing initial {idx + 1}/{len(KOREAN_INITIALS)}: {initial}")
+            
+            medicines = self._fetch_by_initial(initial)
+            all_medicines.extend(medicines)
+
+            logger.info("Collected %d medicines for initial '%s'", len(medicines), initial)
+
+        logger.info("Total medicines collected: %d", len(all_medicines))
+        self._csv_writer.save(all_medicines)
+        return all_medicines
+
+    def _fetch_by_initial(self, initial: str) -> list[Medicine]:
+        """
+        특정 초성에 대한 모든 페이지의 의약품 정보를 수집.
+        
+        Args:
+            initial: 한글 초성.
+            
+        Returns:
+            해당 초성의 Medicine 객체 목록.
+        """
+        encoded_initial = quote(initial, encoding="utf-8")
+        medicines: list[Medicine] = []
+        page_num = 1
+
+        while True:
+            logger.debug("Fetching page %d for initial '%s'", page_num, initial)
+            
+            page_medicines = self._fetch_page(page_num, encoded_initial)
+            
+            if not page_medicines:
+                break
+                
+            medicines.extend(page_medicines)
+            
+            if page_num == 1:
+                logger.debug("First medicine: %s", page_medicines[0])
+            
+            page_num += 1
+            time.sleep(self._wait_time)
+
+        return medicines
+
+    def _fetch_page(self, page_num: int, encoded_initial: str) -> list[Medicine]:
+        """
+        단일 페이지의 의약품 정보를 가져와 파싱.
+        
+        Args:
+            page_num: 페이지 번호.
+            encoded_initial: URL 인코딩된 초성.
+            
+        Returns:
+            파싱된 Medicine 객체 목록.
+        """
+        payload = SearchPayload(
+            req_page=page_num,
+            listup=self._page_size,
+            search_drugnm_initial=encoded_initial,
+        )
+        #print(payload.to_urlencoded())
+
+        response = self._client._post(
+            _HEALTH_BASE_URL_,
+            body=payload.to_urlencoded(),
+            referer=_HEALTH_START_URL_,
+            timeout=60,
+        )
+        #print(response.content)
+        
+        return self._html_parser.parse(response.content)
 
     def fetch(self):
 
@@ -68,6 +177,20 @@ class DownloadParser:
                 page_num = 1
             
             time.sleep(self.wait_time)
+
+    @staticmethod
+    def parse_query_params(query_string: str) -> dict:
+        """
+        URL 쿼리 문자열을 딕셔너리로 파싱.
+        
+        Args:
+            query_string: "?" 포함 가능한 쿼리 문자열.
+            
+        Returns:
+            파싱된 파라미터 딕셔너리.
+        """
+        parsed = parse_qs(query_string.lstrip("?"))
+        return {k: v[0] if len(v) == 1 else v for k, v in parsed.items()}
 
     def parse(self, page_num, initial):
         url = _HEALTH_BASE_URL_
@@ -114,6 +237,7 @@ class DownloadParser:
             "more": ""
         }
 
+        """ """
         payload = f"req_page={page_num}&listup={self.page_size}" \
             f"&search_drugnm_initial={initial}" \
             "&inner_search_word=&origin_cnt=&inner_search_flag=" \
@@ -125,16 +249,21 @@ class DownloadParser:
             "&anchor_form_info_hidden=&cbx_narcotic=&atccode_val=&atccode_name=" \
             "&kpic_atc_nm_opener=&kpic_atc_nm=&cbx_bio=&icode=&ori_search_word=" \
             "&search_flag=&movefrom=drug&viewmode=&more="
+        """ """
         #print('headers', self.headers)
-        print('payload', payload)
+        payload = "req_page=1&listup=1000&search_drugnm_initial=%E3%84%B1&inner_search_word=&origin_cnt=&inner_search_flag=&inner_match_value=&input_drug_nm=&input_upsoNm=&cbx_sunbcnt=0&cbx_class=0&anchor_dosage_route_hidden=&mfds_cd=&mfds_cdword=&input_hiraingdcd=&search_sunb1=&search_sunb2=&search_sunb3=&sunb_equals1=&sunb_equals2=&sunb_equals3=&sunb_where1=and&sunb_where2=and&search_effect=&cbx_bohtype=&search_bohcode=&anchor_form_info_hidden=&cbx_narcotic=&atccode_val=&atccode_name=&kpic_atc_nm_opener=&kpic_atc_nm=&cbx_bio=&icode=&ori_search_word=&search_flag=&movefrom=drug&viewmode=&more="
         
+        print('url', url)
+        print('payload', payload)
+
         response = self._client._post(url, body=payload, timeout=60)
-        print('response', response, type(response))
+        print('response', response.content, type(response))
         #print('response.content', response.content, type(response.content))
 
         #page = BeautifulSoup(response.content, "html.parser")
         #print('page', page, type(page))
         page = html.fromstring(response.content)
+        print('page', page, type(page))
 
         #
         #articles = [article.text_content().strip() for article in page.xpath('//article[@id="resultMoreTable"]//h3[@class="subtitle"]//span[@class="count"]')]

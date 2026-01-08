@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Sayouzone
+# Copyright (c) 2025-2026, Sayouzone
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,8 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+공공데이터 파싱 모듈
+
+HIRA 공공데이터 포털에서 병원/약국 데이터를 다운로드하고 파싱합니다.
+"""
+
 import csv
 import io
+import logging
 import os
 import re
 import zipfile
@@ -21,8 +28,17 @@ import zipfile
 from io import BytesIO
 from lxml import html
 from pathlib import Path
+from typing import Optional
 
 from ..client import HiraClient
+from ..models import (
+    DownloadFile,
+    ExcelData,
+    FileType,
+    Hospital,
+    OpenDataResult,
+    Pharmacy,
+)
 from ..utils import (
     _OPENDATA_START_URL_,
     _OPENDATA_DOWNLOAD_URL_,
@@ -32,183 +48,322 @@ from ..utils import (
     decode_euc_kr,
     get_filename,
 )
-
 from .excel import ExcelParser
 
+logger = logging.getLogger(__name__)
+
+
 class OpenDataParser:
+    """공공데이터 파싱 클래스"""
+
+    HOSPITAL_FILE_PREFIX = "1.병원정보서비스"
+    PHARMACY_FILE_PREFIX = "2.약국정보서비스"
+    DEST_DIR = "opendata_hira_data"
+
     def __init__(self, client: HiraClient, local_path: str = "./data"):
-        self._client = client
-        self._excel_parser = ExcelParser(client)
-
-        self._local_path = local_path
-        self._excel_filename = None
-        self._hospital_data = None
-        self._pharmacy_data = None
-
-    def fetch(self):
-        # GCS에 업로드
-        #gcs_api = StorageAPI(self.project_id, self.gcs_region, self.bucket_name)
-
-        filename, content = self.parse()
-
-        blob_name = os.path.join(self._local_path, filename)
-        #blob = gcs_api.check_data(self.bucket_name, blob_name)
-        #gcs_api.upload_data(content, blob_name)
-
-        # 전국 병의원 및 약국 현황 zip 파일 압축해제
-        dest_dir = "opendata_hira_data"
-        self._unzip_from_data(content, dest_dir)
-        list_files = self._list_files(dest_dir)
-        for file in list_files:
-            #gcs_api.upload_file(os.path.join(dest_dir, file), f"data/{dest_dir}/{file}")
-            print('Excel', file)
-
-        # 병원정보서비스 엑셀 파일 파싱 및 BigQuery에 로드, CSV 파일 생성
-        file = "1.병원정보서비스"
-        items = [item for item in list_files if file in item]
-        csv_file_path = "hospital_list.csv"
-        if len(items) > 0:
-            columns = HOSPITAL_COLUMNS
-
-            # 엑셀 파일 파싱
-            self._hospital_data = self._excel_parser.parse_excel_file(os.path.join(dest_dir, items[0]))
-            #print('Hospital', data)
-
-        # 약국정보서비스 엑셀 파일 파싱 및 BigQuery에 로드, CSV 파일 생성
-        file = "2.약국정보서비스"
-        items = [item for item in list_files if file in item]
-        csv_file_path = "pharmacy_list.csv"
-        if len(items) > 0:
-            columns = PHARMACY_COLUMNS
-
-            # 엑셀 파일 파싱
-            self._pharmacy_data = self._excel_parser.parse_excel_file(os.path.join(dest_dir, items[0]))
-            #print('Pharmacy', data)
-
-        # 압축해제 디렉토리 내부 파일 삭제
-        #os.rmdir(dest_dir)
-        for file in list_files:
-            os.remove(os.path.join(dest_dir, file))
-
-    def parse(self):
-        url = _OPENDATA_START_URL_
-
-        response = self._client._get(url)
-        print('response', response, type(response))
-
-        headers = response.headers
-        print('headers', headers)
-
-        page = html.fromstring(response.content)
+        """
+        OpenDataParser 초기화
         
-        li_rows = page.xpath('//dl[@class="fileList ml00"]/dd/ul/li/a/@href')
-        onclicks = [re.search(r"fn_fileDown\('(.+?)'\)", row) for row in li_rows]
-        onclicks = [match.group(1) for match in onclicks if match]
-        print('onclicks', onclicks)
+        Args:
+            client: HiraClient 인스턴스
+            local_path: 로컬 저장 경로
+        """
+        self._client = client
+        self._local_path = local_path
+        self._excel_parser = ExcelParser(client, local_path)
 
-        onclicks.sort(reverse=True)
-        download_code = onclicks[0] if len(onclicks) > 0 else None
-        print('download_code', download_code)
-        #download_code = "295053"
+    def fetch(self) -> Optional[OpenDataResult]:
+        """
+        공공데이터 다운로드 및 파싱
+        
+        Returns:
+            OpenDataResult: 파싱 결과 (실패 시 None)
+        """
+        # ZIP 파일 다운로드
+        download_file = self._download_latest_file()
+        if download_file is None:
+            return None
 
-        filename, content = self.download(download_code)
-        return filename, content
-    
-    def download(self, download_code):
+        # ZIP 파일 압축 해제
+        extracted_files = self._extract_zip(download_file.content, self.DEST_DIR)
+        logger.info(f"압축 해제 완료: {len(extracted_files)}개 파일")
+
+        # 병원 데이터 파싱
+        hospital_data = self._parse_service_file(
+            extracted_files,
+            self.HOSPITAL_FILE_PREFIX,
+        )
+
+        # 약국 데이터 파싱
+        pharmacy_data = self._parse_service_file(
+            extracted_files,
+            self.PHARMACY_FILE_PREFIX,
+        )
+
+        # 임시 파일 정리
+        self._cleanup_extracted_files(extracted_files, self.DEST_DIR)
+
+        return OpenDataResult(
+            download_file=download_file,
+            hospital_data=hospital_data,
+            pharmacy_data=pharmacy_data,
+            extracted_files=extracted_files,
+        )
+
+    def get_hospitals(
+        self,
+        result: OpenDataResult,
+        columns: Optional[dict] = None,
+    ) -> list[Hospital]:
+        """
+        OpenDataResult에서 Hospital 객체 리스트 추출
+        
+        Args:
+            result: OpenDataResult 객체
+            columns: 컬럼 매핑 (기본: HOSPITAL_COLUMNS)
+            
+        Returns:
+            Hospital 리스트
+        """
+        if not result.has_hospital_data:
+            return []
+
+        columns = columns or HOSPITAL_COLUMNS
+        hospitals = []
+        
+        for idx, row in enumerate(result.hospital_data.get_data_rows(), start=1):
+            if self._is_header_row(row, "암호화요양기호"):
+                continue
+            hospital = Hospital.from_tuple(row, columns, idx)
+            hospitals.append(hospital)
+
+        return hospitals
+
+    def get_pharmacies(
+        self,
+        result: OpenDataResult,
+        columns: Optional[dict] = None,
+    ) -> list[Pharmacy]:
+        """
+        OpenDataResult에서 Pharmacy 객체 리스트 추출
+        
+        Args:
+            result: OpenDataResult 객체
+            columns: 컬럼 매핑 (기본: PHARMACY_COLUMNS)
+            
+        Returns:
+            Pharmacy 리스트
+        """
+        if not result.has_pharmacy_data:
+            return []
+
+        columns = columns or PHARMACY_COLUMNS
+        pharmacies = []
+        
+        for idx, row in enumerate(result.pharmacy_data.get_data_rows(), start=1):
+            if self._is_header_row(row, "암호화요양기호"):
+                continue
+            pharmacy = Pharmacy.from_tuple(row, columns, idx)
+            pharmacies.append(pharmacy)
+
+        return pharmacies
+
+    def save_hospitals_to_csv(
+        self,
+        hospitals: list[Hospital],
+        file_path: str,
+        encoding: str = "utf-8-sig",
+    ) -> None:
+        """
+        Hospital 리스트를 CSV로 저장
+        
+        Args:
+            hospitals: Hospital 리스트
+            file_path: 저장할 파일 경로
+            encoding: 파일 인코딩
+        """
+        with open(file_path, "w", newline="", encoding=encoding) as file:
+            writer = csv.writer(file)
+            writer.writerow(["id", "name", "address"])
+            
+            for hospital in hospitals:
+                writer.writerow([hospital.id, hospital.name, hospital.address])
+
+    def save_pharmacies_to_csv(
+        self,
+        pharmacies: list[Pharmacy],
+        file_path: str,
+        encoding: str = "utf-8-sig",
+    ) -> None:
+        """
+        Pharmacy 리스트를 CSV로 저장
+        
+        Args:
+            pharmacies: Pharmacy 리스트
+            file_path: 저장할 파일 경로
+            encoding: 파일 인코딩
+        """
+        with open(file_path, "w", newline="", encoding=encoding) as file:
+            writer = csv.writer(file)
+            writer.writerow(["id", "name", "address"])
+            
+            for pharmacy in pharmacies:
+                writer.writerow([pharmacy.id, pharmacy.name, pharmacy.address])
+
+    def _download_latest_file(self) -> Optional[DownloadFile]:
+        """
+        최신 파일 다운로드
+        
+        Returns:
+            DownloadFile: 다운로드된 파일 정보 (실패 시 None)
+        """
+        download_code = self._get_latest_download_code()
+        if download_code is None:
+            logger.error("다운로드 코드를 찾을 수 없습니다.")
+            return None
+
+        return self._download_file(download_code)
+
+    def _get_latest_download_code(self) -> Optional[str]:
+        """
+        최신 다운로드 코드 조회
+        
+        Returns:
+            다운로드 코드 (실패 시 None)
+        """
+        url = _OPENDATA_START_URL_
+        
+        try:
+            response = self._client._get(url)
+            page = html.fromstring(response.content)
+
+            li_rows = page.xpath('//dl[@class="fileList ml00"]/dd/ul/li/a/@href')
+            onclicks = [re.search(r"fn_fileDown\('(.+?)'\)", row) for row in li_rows]
+            onclicks = [match.group(1) for match in onclicks if match]
+
+            if not onclicks:
+                return None
+
+            onclicks.sort(reverse=True)
+            return onclicks[0]
+        except Exception as e:
+            logger.error(f"다운로드 코드 조회 실패: {e}")
+            return None
+
+    def _download_file(self, download_code: str) -> Optional[DownloadFile]:
+        """
+        파일 다운로드
+        
+        Args:
+            download_code: 다운로드 코드
+            
+        Returns:
+            DownloadFile: 다운로드된 파일 정보 (실패 시 None)
+        """
         url = _OPENDATA_DOWNLOAD_URL_
         payload = {
             "customValue": download_code,
-            "d00": "UlpEQXhER1J2ZDI1c2IyRmtVbVZ4ZFdWemRBdGtNVEFNWHd0a01qVU1MM05vWVhKbFpDOWtZWFJoTDNWd2JHOWhaRVpwYkdWekwyWnBiR1V2T0RrNU56WXhPVVl0T0VJNFJpMURSRFU0TFRkQ05qa3RNVUZEUlRKR09UaEVOa0V5TG5wcGNBdGtNallNN0tDRTZyV3RJT3V6a2V5ZG1PeWJrQ0Ryc0k4ZzdKVzk2cld0SU8yWWhPMlpxU0F5TURJMExqRXlMbnBwY0F0a01EY01ORGN4UVVaRVF6RXRORGRCTXkxRVFUSTJMVE16UlRjdFJrUkdNMFJFTWtFd1FqTkRDdz09"
+            "d00": "UlpEQXhER1J2ZDI1c2IyRmtVbVZ4ZFdWemRBdGtNVEFNWHd0a01qVU1MM05vWVhKbFpDOWtZWFJoTDNWd2JHOWhaRVpwYkdWekwyWnBiR1V2T0RrNU56WXhPVVl0T0VJNFJpMURSRFU0TFRkQ05qa3RNVUZEUlRKR09UaEVOa0V5TG5wcGNBdGtNallNN0tDRTZyV3RJT3V6a2V5ZG1PeWJrQ0Ryc0k4ZzdKVzk2cld0SU8yWWhPMlpxU0F5TURJMExqRXlMbnBwY0F0a01EY01ORGN4UVVaRVF6RXRORGRCTXkxRVFUSTJMVE16UlRjdFJrUkdNMFJFTWtFd1FqTkRDdz09",
         }
 
-        response = self._client._post(url, body=payload)
-        print('response', response, type(response))
+        try:
+            response = self._client._post(url, body=payload)
+            headers = response.headers
 
-        headers = response.headers
-        print('headers', headers, type(headers))
+            filename = get_filename(headers)
+            logger.info(f"다운로드 완료: {filename}")
 
-        # 한글 파일명 변환
-        filename = get_filename(headers)
-        print('Excel filename', filename)
+            return DownloadFile(
+                filename=filename,
+                content=response.content,
+                file_type=FileType.ZIP,
+            )
+        except Exception as e:
+            logger.error(f"파일 다운로드 실패: {e}")
+            return None
 
-        return filename, response.content
-
-    def _exist_string_in_tuple(self, items, string):
+    def _extract_zip(self, data: bytes, dest_dir: str) -> list[str]:
         """
-        튜플 내에 특정 문자열이 포함된 요소가 있는지 확인합니다.
-
+        ZIP 파일 압축 해제
+        
         Args:
-            my_tuple: 확인할 튜플 (문자열로 구성된 튜플).
-            search_string: 찾을 문자열.
-
+            data: ZIP 파일 바이트 데이터
+            dest_dir: 압축 해제 대상 디렉토리
+            
         Returns:
-            True: 튜플 내에 search_string을 포함하는 요소가 하나 이상 있는 경우.
-            False: 그렇지 않은 경우.
+            압축 해제된 파일명 리스트
         """
-        for item in items:
-            if item and string in item:
+        os.makedirs(dest_dir, exist_ok=True)
+        extracted_files = []
+
+        with zipfile.ZipFile(io.BytesIO(data), "r") as zip_ref:
+            for fileinfo in zip_ref.namelist():
+                extracted_path = Path(zip_ref.extract(fileinfo, dest_dir))
+
+                # 한글 파일명 디코딩 (cp437 -> euc-kr)
+                decoded_name = fileinfo.encode("cp437").decode("euc-kr", "ignore")
+                final_path = os.path.join(dest_dir, decoded_name)
+                
+                extracted_path.rename(final_path)
+                extracted_files.append(decoded_name)
+                logger.debug(f"압축 해제: {decoded_name}")
+
+        return extracted_files
+
+    def _parse_service_file(
+        self,
+        extracted_files: list[str],
+        file_prefix: str,
+    ) -> Optional[ExcelData]:
+        """
+        서비스 엑셀 파일 파싱
+        
+        Args:
+            extracted_files: 압축 해제된 파일 리스트
+            file_prefix: 파일명 접두사
+            
+        Returns:
+            ExcelData: 파싱된 데이터 (파일이 없으면 None)
+        """
+        matching_files = [f for f in extracted_files if file_prefix in f]
+        
+        if not matching_files:
+            logger.warning(f"'{file_prefix}' 파일을 찾을 수 없습니다.")
+            return None
+
+        file_path = os.path.join(self.DEST_DIR, matching_files[0])
+        logger.info(f"파싱 중: {matching_files[0]}")
+
+        return self._excel_parser.parse_excel_file(file_path)
+
+    def _cleanup_extracted_files(self, files: list[str], directory: str) -> None:
+        """
+        압축 해제된 파일 정리
+        
+        Args:
+            files: 파일명 리스트
+            directory: 디렉토리 경로
+        """
+        for file in files:
+            file_path = os.path.join(directory, file)
+            try:
+                os.remove(file_path)
+                logger.debug(f"파일 삭제: {file_path}")
+            except OSError as e:
+                logger.warning(f"파일 삭제 실패: {file_path} - {e}")
+
+    def _is_header_row(self, row: tuple, keyword: str) -> bool:
+        """
+        헤더 행인지 확인
+        
+        Args:
+            row: 확인할 행
+            keyword: 헤더 식별 키워드
+            
+        Returns:
+            True: 헤더 행인 경우
+        """
+        for item in row:
+            if item and isinstance(item, str) and keyword in item:
                 return True
         return False
-    
-    def _save_to_csv(self, file_path, columns, data):
-        keys = tuple(columns.keys())
-
-        with open(file_path, 'w', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            writer.writerow(["id","name","address"])
-            index = 1
-            for row in data:
-                if isinstance(row, tuple) and \
-                    self._exist_string_in_tuple(row, "암호화요양기호"):
-                    continue
-                item = dict(zip(keys, row))
-                writer.writerow([index, item.get("medical_institution_name"), item.get("address")])
-                index += 1
-    
-    def _parse_params(self, query_string):
-
-        # "?" 제거 후 파싱
-        parsed_params = parse_qs(query_string.lstrip("?"))
-
-        # 값이 리스트로 반환되므로 단일 값만 있는 경우 리스트에서 추출
-        parsed_params = {k: v[0] if len(v) == 1 else v for k, v in parsed_params.items()}
-
-        print(parsed_params)
-        return parsed_params
-    
-    def _unzip_from_file(self, file_path, dest_dir):
-        zip_ref = zipfile.ZipFile(file_path, 'r') 
-        for fileinfo in zip_ref.namelist():
-            #print(fileinfo.filename)
-            #extracted_path = Path(zip_ref.extract(fileinfo))
-            extracted_path = Path(zip_ref.extract(fileinfo, dest_dir))
-            #print('extracted_path', extracted_path)
-    
-            # 파일명이 한글인 경우 cp437로 인코딩되어 있어서 euc-kr로 디코딩
-            decoded_path = fileinfo.encode('cp437').decode('euc-kr', 'ignore')
-            print('decoded_path', decoded_path)
-            extracted_path.rename(os.path.join(dest_dir, decoded_path))
-    
-    def _unzip_from_data(self, data, dest_dir):
-        zip_ref = zipfile.ZipFile(io.BytesIO(data), 'r') 
-        for fileinfo in zip_ref.namelist():
-            #print(fileinfo.filename)
-            #extracted_path = Path(zip_ref.extract(fileinfo))
-            extracted_path = Path(zip_ref.extract(fileinfo, dest_dir))
-            #print('extracted_path', extracted_path)
-    
-            # 파일명이 한글인 경우 cp437로 인코딩되어 있어서 euc-kr로 디코딩
-            decoded_path = fileinfo.encode('cp437').decode('euc-kr', 'ignore')
-            print('decoded_path', decoded_path)
-            extracted_path.rename(os.path.join(dest_dir, decoded_path))
-    
-    def _list_files(self, directory):
-        try:
-            file_list = os.listdir(directory)
-            return file_list
-        except FileNotFoundError:
-            print(f"Error: Directory '{directory}' not found.")
-            return None
-        except Exception as e:
-            print(f"Error: An error occurred - {e}")
-            return None

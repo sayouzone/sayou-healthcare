@@ -27,7 +27,7 @@ def demo_download_medicines(crawler: HiraCrawler):
     data = crawler.download()    
     print(data)
 
-def demo_download_hospital(crawler: HiraCrawler):
+def demo_download_opendata(crawler: HiraCrawler):
     """Hira 다운로드 데모"""
     print(f"\n{'='*60}")
     print(f"Hira")
@@ -43,7 +43,7 @@ def main():
    
     # 각 파일링 타입 데모
     #demo_download_medicines(crawler)
-    demo_download_hospital(crawler)
+    demo_download_opendata(crawler)
     
     print("\n" + "="*60)
     print("Demo completed!")

@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Sayouzone
+# Copyright (c) 2025-2026, Sayouzone
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,4 +43,5 @@ class HealthCrawler:
         self._download_parser = DownloadParser(self.client)
         
     def download(self):
-        self._download_parser.fetch()
+        return self._download_parser.fetch_all()
+        #return self._download_parser.fetch()

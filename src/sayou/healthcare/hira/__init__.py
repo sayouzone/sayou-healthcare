@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Sayouzone
+# Copyright (c) 2025-2026, Sayouzone
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -92,7 +92,16 @@ __author__ = "SeongJung Kim"
 
 from .crawler import HiraCrawler
 from .client import HiraClient
-
+from .models import (
+    BoardItem,
+    DownloadFile,
+    DownloadResult,
+    ExcelData,
+    FileType,
+    Hospital,
+    OpenDataResult,
+    Pharmacy,
+)
 from .parsers import (
     ExcelParser,
     DownloadParser,
@@ -105,6 +114,14 @@ __all__ = [
     "HiraClient",
     
     # 데이터 모델
+    "BoardItem",
+    "DownloadFile",
+    "DownloadResult",
+    "ExcelData",
+    "FileType",
+    "Hospital",
+    "OpenDataResult",
+    "Pharmacy",
     
     # 파서
     "ExcelParser",

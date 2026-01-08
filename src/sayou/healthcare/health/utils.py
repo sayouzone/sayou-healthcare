@@ -1,32 +1,24 @@
+# Copyright (c) 2025-2026, Sayouzone
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import re
 from urllib.parse import unquote
 
-_START_URL_ = "https://www.hira.or.kr/bbsDummy.do?pgmid=HIRAA030014050000"
-_DOWNLOAD_BASE_URL_ = "https://www.hira.or.kr/bbs/bbsCDownLoad.do"
-
-_HEALTH_START_URL_ = "https://www.health.kr/searchDrug/result_more.asp"
-_HEALTH_BASE_URL_ = "https://www.hira.or.kr/bbs/bbsCDownLoad.do"
-_HEALTH_DOWNLOAD_URL_ = "https://www.hira.or.kr/bbs/bbsCDownLoad.do"
+_HEALTH_START_URL_ = "https://www.health.kr/searchDrug/search_detail.asp"
+_HEALTH_BASE_URL_ = "https://www.health.kr/searchDrug/result_more.asp"
 
 KOREAN_INITIAL = "%E3%84%B1"
-"""
-KOREAN_INITIALS = {
-    "ㄱ" : "%E3%84%B1",
-    "ㄴ" : "%E3%84%B4",
-    "ㄷ" : "%E3%84%B7",
-    "ㄹ" : "%E3%84%B9",
-    "ㅁ" : "%E3%85%81",
-    "ㅂ" : "%E3%85%82",
-    "ㅅ" : "%E3%85%85",
-    "ㅇ" : "%E3%85%87",
-    "ㅈ" : "%E3%85%88",
-    "ㅊ" : "%E3%85%8A",
-    "ㅋ" : "%E3%85%8B",
-    "ㅌ" : "%E3%85%8C",
-    "ㅍ" : "%E3%85%8D",
-    "ㅎ" : "%E3%85%8E",
-}
-"""
 KOREAN_INITIALS = ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", 
                    "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"]
 
