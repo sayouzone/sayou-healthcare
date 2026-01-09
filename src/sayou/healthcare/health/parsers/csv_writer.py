@@ -34,7 +34,7 @@ class MedicineCsvWriter:
         Args:
             output_path: 저장할 CSV 파일 경로. None이면 기본 파일명 사용.
         """
-        self._output_path = Path(output_path) if output_path else Path(self.DEFAULT_FILENAME)
+        self._output_path = Path(output_path) / self.DEFAULT_FILENAME if output_path else Path(self.DEFAULT_FILENAME)
 
     @property
     def output_path(self) -> Path:

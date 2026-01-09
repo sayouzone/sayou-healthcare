@@ -138,7 +138,7 @@ class DownloadParser:
             listup=self._page_size,
             search_drugnm_initial=encoded_initial,
         )
-        #print(payload.to_urlencoded())
+        print(payload.to_urlencoded())
 
         response = self._client._post(
             _HEALTH_BASE_URL_,

@@ -17,7 +17,8 @@ def demo_download(crawler: HealthCrawler):
 
 def main():
     """약학정보원 데모 실행"""
-    # SEC에서 요구하는 User-Agent 설정
+    
+    # Health Crawler 초기화
     crawler = HealthCrawler()
    
     # 각 파일링 타입 데모

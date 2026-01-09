@@ -41,7 +41,7 @@ def demo_parsing_medicines(crawler: HiraCrawler):
 def demo_download_opendata(crawler: HiraCrawler):
     """Hira 다운로드 데모"""
     print(f"\n{'='*60}")
-    print(f"보건의료빅데이터개방시스템")
+    print(f"보건의료빅데이터개방시스템 데이터 다운로드")
     print('='*60)
 
     data = crawler.opendata()    
@@ -66,7 +66,8 @@ def demo_download_opendata(crawler: HiraCrawler):
 
 def main():
     """메인 데모 실행"""
-    # SEC에서 요구하는 User-Agent 설정
+    
+    # Hira Crawler 초기화
     crawler = HiraCrawler()
    
     # 각 파일링 타입 데모

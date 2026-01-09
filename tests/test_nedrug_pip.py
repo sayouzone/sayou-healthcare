@@ -27,7 +27,8 @@ def demo_parsing_excel(crawler: NedrugCrawler):
 
 def main():
     """메인 데모 실행"""
-    # SEC에서 요구하는 User-Agent 설정
+    
+    # Nedrug Crawler 초기화
     crawler = NedrugCrawler()
    
     # 각 파일링 타입 데모
