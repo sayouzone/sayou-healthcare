@@ -3,18 +3,7 @@
 Hira Crawler 사용 예시
 """
 
-import os
-import pandas as pd
-import sys
-
-from datetime import datetime
-from dotenv import load_dotenv
-from pathlib import Path
-
-# 상위 디렉토리를 path에 추가
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
-
-print(str(Path(__file__).parent.parent / 'src'))
+from sayou.healthcare.hira import HiraCrawler
 
 from sayou.healthcare.hira import HiraCrawler
 
@@ -41,7 +30,7 @@ def demo_parsing_medicines(crawler: HiraCrawler):
 def demo_download_opendata(crawler: HiraCrawler):
     """Hira 다운로드 데모"""
     print(f"\n{'='*60}")
-    print(f"보건의료빅데이터개방시스템")
+    print(f"보건의료빅데이터개방시스템 데이터 다운로드")
     print('='*60)
 
     data = crawler.opendata()    

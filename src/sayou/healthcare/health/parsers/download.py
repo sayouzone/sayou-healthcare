@@ -76,7 +76,7 @@ class DownloadParser:
             수집된 모든 Medicine 객체 목록.
         """        
         all_medicines: list[Medicine] = []
-        for idx, initial in enumerate(KOREAN_INITIALS):
+        for idx, initial in enumerate(KOREAN_INITIALS[:1]):
             logger.info("Processing initial %d/%d: %s", 
                        idx + 1, len(KOREAN_INITIALS), initial)
             print(f"Processing initial {idx + 1}/{len(KOREAN_INITIALS)}: {initial}")
@@ -87,7 +87,7 @@ class DownloadParser:
             logger.info("Collected %d medicines for initial '%s'", len(medicines), initial)
 
         logger.info("Total medicines collected: %d", len(all_medicines))
-        self._csv_writer.save(all_medicines)
+        self._csv_writer.save_full(all_medicines)
         return all_medicines
 
     def _fetch_by_initial(self, initial: str) -> list[Medicine]:

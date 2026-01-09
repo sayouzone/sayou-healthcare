@@ -29,6 +29,7 @@ from io import BytesIO
 from lxml import html
 from pathlib import Path
 from typing import Optional
+from urllib.parse import unquote
 
 from ..client import HiraClient
 from ..models import (
@@ -72,9 +73,15 @@ class OpenDataParser:
         self._local_path = local_path
         self._excel_parser = ExcelParser(client, local_path)
 
-    def fetch(self) -> Optional[OpenDataResult]:
+        self._hospital_data = None
+        self._pharmacy_data = None
+
+    def fetch(self, is_cleanup_files: bool = True) -> Optional[OpenDataResult]:
         """
         공공데이터 다운로드 및 파싱
+        
+        Args:
+            is_cleanup_files: 압축 해제된 파일 정리 여부
         
         Returns:
             OpenDataResult: 파싱 결과 (실패 시 None)
@@ -89,26 +96,41 @@ class OpenDataParser:
         logger.info(f"압축 해제 완료: {len(extracted_files)}개 파일")
 
         # 병원 데이터 파싱
-        hospital_data = self._parse_service_file(
+        self._hospital_data = self._parse_service_file(
             extracted_files,
             self.HOSPITAL_FILE_PREFIX,
         )
 
         # 약국 데이터 파싱
-        pharmacy_data = self._parse_service_file(
+        self._pharmacy_data = self._parse_service_file(
             extracted_files,
             self.PHARMACY_FILE_PREFIX,
         )
 
         # 임시 파일 정리
-        self._cleanup_extracted_files(extracted_files, self.DEST_DIR)
+        if is_cleanup_files:
+            self._cleanup_extracted_files(extracted_files, self.DEST_DIR)
 
         return OpenDataResult(
             download_file=download_file,
-            hospital_data=hospital_data,
-            pharmacy_data=pharmacy_data,
+            hospital_data=self._hospital_data,
+            pharmacy_data=self._pharmacy_data,
             extracted_files=extracted_files,
         )
+
+    def hospitals(self):
+        if self._hospital_data:
+            return self._hospital_data
+
+        self.fetch()
+        return self._hospital_data
+
+    def pharmacies(self):
+        if self._pharmacy_data:
+            return self._pharmacy_data
+
+        self.fetch()
+        return self._pharmacy_data
 
     def get_hospitals(
         self,
@@ -274,7 +296,7 @@ class OpenDataParser:
             logger.info(f"다운로드 완료: {filename}")
 
             return DownloadFile(
-                filename=filename,
+                filename=unquote(filename),
                 content=response.content,
                 file_type=FileType.ZIP,
             )
@@ -309,6 +331,52 @@ class OpenDataParser:
                 logger.debug(f"압축 해제: {decoded_name}")
 
         return extracted_files
+
+    def _save_zip_contents(
+        self,
+        data: bytes,
+        dest_dir: Optional[str] = None,
+        overwrite: bool = False,
+    ) -> list[str]:
+        """
+        ZIP 파일 내용을 로컬에 저장
+        
+        Args:
+            data: ZIP 파일 바이트 데이터
+            dest_dir: 저장할 디렉토리 경로 (기본: self._local_path)
+            overwrite: 기존 파일 덮어쓰기 여부
+            
+        Returns:
+            저장된 파일 경로 리스트
+        """
+        dest_dir = dest_dir or self._local_path
+        os.makedirs(dest_dir, exist_ok=True)
+        saved_files = []
+
+        with zipfile.ZipFile(io.BytesIO(data), "r") as zip_ref:
+            for fileinfo in zip_ref.namelist():
+                # 한글 파일명 디코딩 (cp437 -> euc-kr)
+                decoded_name = fileinfo.encode("cp437").decode("euc-kr", "ignore")
+                final_path = os.path.join(dest_dir, decoded_name)
+                
+                # 기존 파일 존재 시 처리
+                if os.path.exists(final_path) and not overwrite:
+                    logger.warning(f"파일이 이미 존재합니다 (건너뜀): {final_path}")
+                    continue
+                
+                # 디렉토리인 경우 생성만
+                if fileinfo.endswith("/"):
+                    os.makedirs(final_path, exist_ok=True)
+                    continue
+                
+                # 파일 저장
+                with zip_ref.open(fileinfo) as src, open(final_path, "wb") as dst:
+                    dst.write(src.read())
+                
+                saved_files.append(final_path)
+                logger.info(f"파일 저장: {final_path}")
+
+        return saved_files
 
     def _parse_service_file(
         self,

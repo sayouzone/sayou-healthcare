@@ -42,8 +42,15 @@ class HiraCrawler:
     def excel(self):
         return self._excel_parser.fetch()
 
-    def opendata(self):
-        return self._opendata_parser.fetch()
-
     def parse(self):
         return self._excel_parser.parse("./data")
+
+    def opendata(self):
+        # 압축 해제된 파일 정리하지 않음
+        return self._opendata_parser.fetch(is_cleanup_files=False)
+
+    def hospitals(self):
+        return self._opendata_parser.hospitals()
+
+    def pharmacies(self):
+        return self._opendata_parser.pharmacies()

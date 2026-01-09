@@ -19,7 +19,7 @@ Nedrug Crawler
 Nedrug에서 주요 데이터를 추출하는 Python 패키지
 
 Installation:
-    pip install requests beautifulsoup4 lxml
+    pip install requests beautifulsoup4 lxml openpyxl
 
 Quick Start:
     >>> from sayou.healthcare.nedrug import NedrugCrawler

@@ -3,19 +3,6 @@
 Nedrug Crawler 사용 예시
 """
 
-import os
-import pandas as pd
-import sys
-
-from datetime import datetime
-from dotenv import load_dotenv
-from pathlib import Path
-
-# 상위 디렉토리를 path에 추가
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
-
-print(str(Path(__file__).parent.parent / 'src'))
-
 from sayou.healthcare.health import HealthCrawler
 
 def demo_download(crawler: HealthCrawler):
@@ -26,8 +13,7 @@ def demo_download(crawler: HealthCrawler):
 
     medicines = crawler.medicines()    
     for medicine in medicines:
-        #print(medicine)
-        pass
+        print(medicine)
 
 def main():
     """약학정보원 데모 실행"""

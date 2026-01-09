@@ -40,8 +40,8 @@ class HealthCrawler:
     def __init__(self):
         self.client = HealthClient()
 
-        self._download_parser = DownloadParser(self.client)
+        self._download_parser = DownloadParser(self.client, "./data")
         
-    def download(self):
+    def medicines(self):
         return self._download_parser.fetch_all()
         #return self._download_parser.fetch()

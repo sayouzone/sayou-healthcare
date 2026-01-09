@@ -76,6 +76,7 @@ class MedicineCsvWriter:
             return self._output_path
 
         fieldnames = list(medicines[0].to_dict().keys())
+        print(fieldnames)
         
         with open(self._output_path, "w", newline="", encoding="utf-8") as file:
             writer = csv.DictWriter(file, fieldnames=["id"] + fieldnames)

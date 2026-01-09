@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import re
 from urllib.parse import unquote
+
+logger = logging.getLogger(__name__)
 
 _START_URL_ = "https://www.hira.or.kr/bbsDummy.do?pgmid=HIRAA030014050000"
 _DOWNLOAD_BASE_URL_ = "https://www.hira.or.kr/bbs/bbsCDownLoad.do"
@@ -96,8 +99,8 @@ def get_filename(headers):
     
     encoded_filename = matches[0]
     filename = encoded_filename.encode('latin1').decode('utf-8')
-    print('Content-Disposition', content_disposition)
-    print('filename', filename)
+    logger.debug('Content-Disposition', content_disposition)
+    logger.info('filename', unquote(filename))
 
     return filename
 
