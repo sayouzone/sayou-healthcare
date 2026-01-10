@@ -78,3 +78,7 @@ data = crawler.download()
 for medicine in data.medicines:
     print(medicine)
 ```
+
+## License
+
+Apache 2.0 License © 2025-2026 Sayouzone

@@ -30,3 +30,43 @@ https://opendata.hira.or.kr/dext5upload/handler/upload.dx
 6. BigQuery에 로드
 7. hospital_list.csv 및 pharmacy_list.csv 생성
 ```
+
+## Installation
+
+```bash
+pip install sayou-healthcare
+```
+
+#### 건강보험심사평가원 > 약제급여목록표 > 약제정보
+
+```python
+from sayou.healthcare.hira import HiraCrawler
+
+# Hira Crawler 초기화
+crawler = HiraCrawler()
+
+data = crawler.download()
+for medicine in data.medicines:
+    print(medicine)
+```
+
+#### 보건의료빅데이터개방시스템 > 공공데이터 > 전국 병의원 및 약국 현황
+
+```python
+from sayou.healthcare.hira import HiraCrawler
+
+# Hira Crawler 초기화
+crawler = HiraCrawler()
+
+data = crawler.opendata()    
+print(f"Download File: {data.download_file.filename}")
+print(f"Extracted Files: {data.extracted_files}")
+
+print(f"Hospital Data: {data.hospital_data.filename}")
+for hospital in data.hospital_data.rows:
+    print(hospital)
+
+print(f"Pharmacy Data: {data.pharmacy_data.filename}")
+for pharmacy in data.pharmacy_data.rows:
+    print(pharmacy)
+```

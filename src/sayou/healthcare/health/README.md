@@ -20,3 +20,22 @@ https://www.health.kr/searchDrug/result_drug.asp?drug_cd=2018061800005
 4. BigQuery에 로드
 5. medicine_list.csv에 저장
 ```
+
+## Installation
+
+```bash
+pip install sayou-healthcare
+```
+
+#### 약학정보원 > 의약품 상세검색
+
+```python
+from sayou.healthcare.health import HealthCrawler
+
+# Health Crawler 초기화
+crawler = HealthCrawler()
+
+medicines = crawler.medicines()    
+for medicine in medicines:
+    print(medicine)
+```
